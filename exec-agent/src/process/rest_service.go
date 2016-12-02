@@ -6,7 +6,6 @@ import (
 	"github.com/eclipse/che/exec-agent/rest"
 	"github.com/eclipse/che/exec-agent/rest/restutil"
 	"github.com/eclipse/che/exec-agent/rpc"
-	"github.com/gorilla/mux"
 	"io"
 	"math"
 	"net/http"
@@ -27,19 +26,19 @@ var HttpRoutes = rest.RoutesGroup{
 		{
 			"GET",
 			"Get Process",
-			"/process/{pid}",
+			"/process/:pid",
 			getProcessHF,
 		},
 		{
 			"DELETE",
 			"Kill Process",
-			"/process/{pid}",
+			"/process/:pid",
 			killProcessHF,
 		},
 		{
 			"GET",
 			"Get Process Logs",
-			"/process/{pid}/logs",
+			"/process/:pid/logs",
 			getProcessLogsHF,
 		},
 		{
@@ -51,7 +50,7 @@ var HttpRoutes = rest.RoutesGroup{
 	},
 }
 
-func startProcessHF(w http.ResponseWriter, r *http.Request) error {
+func startProcessHF(w http.ResponseWriter, r *http.Request, p rest.Params) error {
 	command := Command{}
 	if err := restutil.ReadJson(r, &command); err != nil {
 		return err
@@ -83,28 +82,28 @@ func startProcessHF(w http.ResponseWriter, r *http.Request) error {
 		pb.FirstSubscriber(*subscriber)
 	}
 
-	p, err := pb.Start()
+	process, err := pb.Start()
 	if err != nil {
 		return err
 	}
-	return restutil.WriteJson(w, p)
+	return restutil.WriteJson(w, process)
 }
 
-func getProcessHF(w http.ResponseWriter, r *http.Request) error {
-	pid, err := parsePid(mux.Vars(r)["pid"])
+func getProcessHF(w http.ResponseWriter, r *http.Request, p rest.Params) error {
+	pid, err := parsePid(p.Get("pid"))
 	if err != nil {
 		return rest.BadRequest(err)
 	}
 
-	p, err := Get(pid)
+	process, err := Get(pid)
 	if err != nil {
 		return asHttpError(err)
 	}
-	return restutil.WriteJson(w, p)
+	return restutil.WriteJson(w, process)
 }
 
-func killProcessHF(w http.ResponseWriter, r *http.Request) error {
-	pid, err := parsePid(mux.Vars(r)["pid"])
+func killProcessHF(w http.ResponseWriter, r *http.Request, p rest.Params) error {
+	pid, err := parsePid(p.Get("pid"))
 	if err != nil {
 		return rest.BadRequest(err)
 	}
@@ -114,8 +113,8 @@ func killProcessHF(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func getProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
-	pid, err := parsePid(mux.Vars(r)["pid"])
+func getProcessLogsHF(w http.ResponseWriter, r *http.Request, p rest.Params) error {
+	pid, err := parsePid(p.Get("pid"))
 	if err != nil {
 		return rest.BadRequest(err)
 	}
@@ -168,7 +167,7 @@ func getProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func getProcessesHF(w http.ResponseWriter, r *http.Request) error {
+func getProcessesHF(w http.ResponseWriter, r *http.Request, _ rest.Params) error {
 	all, err := strconv.ParseBool(r.URL.Query().Get("all"))
 	if err != nil {
 		all = false

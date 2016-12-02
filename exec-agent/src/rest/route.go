@@ -13,7 +13,11 @@ const (
 
 // Handler for http routes
 // vars variable contain only path parameters if any specified for given route
-type HttpRouteHandlerFunc func(w http.ResponseWriter, r *http.Request) error
+type HttpRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, params Params) error
+
+type Params interface {
+	Get(name string) string
+}
 
 // Describes route for http requests
 type Route struct {
@@ -51,22 +55,10 @@ func (r *Route) String() string {
 	return fmt.Sprintf("%s %s %s", name, method, r.Path)
 }
 
-func ToHttpHandlerFunc(routeHF HttpRouteHandlerFunc) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Delegate call to the defined handler func
-		err := routeHF(w, r)
-		// Consider all the errors different from ApiError as server error
-		if err != nil {
-
-			// Figure out whether error is api error
-			apiErr, ok := err.(ApiError)
-			if !ok {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			// If it is then respond with an appropriate error code
-			http.Error(w, apiErr.Error(), apiErr.Code)
-		}
+func WriteError(w http.ResponseWriter, err error) {
+	if apiErr, ok := err.(ApiError); ok {
+		http.Error(w, apiErr.Error(), apiErr.Code)
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

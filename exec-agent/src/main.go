@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/eclipse/che/exec-agent/auth"
@@ -15,7 +14,8 @@ import (
 	"github.com/eclipse/che/exec-agent/rest"
 	"github.com/eclipse/che/exec-agent/rpc"
 	"github.com/eclipse/che/exec-agent/term"
-	"github.com/gorilla/mux"
+	"github.com/julienschmidt/httprouter"
+	"regexp"
 )
 
 var (
@@ -161,29 +161,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	basePath := basePath
-	if basePath != "" {
-		if strings.HasSuffix(basePath, "/") {
-			basePath = basePath[:len(basePath)-1]
-		}
-		if strings.HasPrefix(basePath, "/") {
-			basePath = basePath[1:]
-		}
-		basePath = "/{path:" + basePath + "}"
-	}
-
-	router := mux.NewRouter().StrictSlash(true)
+	router := httprouter.New()
+	router.NotFound = http.FileServer(http.Dir(staticDir))
 
 	fmt.Print("⇩ Registered HttpRoutes:\n\n")
 	for _, routesGroup := range AppHttpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
-			route.Path = basePath + route.Path
-			router.
-				Methods(route.Method).
-				Path(route.Path).
-				Name(route.Name).
-				HandlerFunc(rest.ToHttpHandlerFunc(route.HandleFunc))
+			router.Handle(
+				route.Method,
+				route.Path,
+				toHandle(route.HandleFunc),
+			)
 			fmt.Printf("✓ %s\n", &route)
 		}
 		fmt.Println()
@@ -205,15 +194,14 @@ func main() {
 		go term.Activity.StartTracking()
 	}
 
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticDir)))
+	var handler http.Handler = router
 
-	var handler http.Handler
-
+	// required authentication for all the requests, if it is configured
 	if authEnabled {
 		cache := auth.NewCache(time.Minute*time.Duration(tokensExpirationTimeoutInMinutes), time.Minute*5)
 
 		handler = auth.Handler{
-			Delegate:    router,
+			Delegate:    handler,
 			ApiEndpoint: apiEndpoint,
 			Cache:       cache,
 			UnauthorizedHandler: func(w http.ResponseWriter, req *http.Request) {
@@ -221,8 +209,15 @@ func main() {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			},
 		}
-	} else {
-		handler = router
+	}
+
+	// cut base path on requests, if it is configured
+	if basePath != "" {
+		if rx, err := regexp.Compile(basePath); err == nil {
+			handler = basePathChopper{rx, handler}
+		} else {
+			log.Fatal(err)
+		}
 	}
 
 	http.Handle("/", handler)
@@ -246,4 +241,34 @@ func dropChannelsWithExpiredToken(token string) {
 			rpc.DropChannel(c.Id)
 		}
 	}
+}
+
+type routerParamsAdapter struct {
+	params httprouter.Params
+}
+
+func (pa routerParamsAdapter) Get(param string) string {
+	return pa.params.ByName(param)
+}
+
+func toHandle(f rest.HttpRouteHandlerFunc) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		if err := f(w, r, routerParamsAdapter{params: p}); err != nil {
+			rest.WriteError(w, err)
+		}
+	}
+}
+
+type basePathChopper struct {
+	pattern  *regexp.Regexp
+	delegate http.Handler
+}
+
+func (c basePathChopper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// if request path starts with given base path
+	if idx := c.pattern.FindStringSubmatchIndex(r.URL.Path); len(idx) != 0 && idx[0] == 0 {
+		r.URL.Path = r.URL.Path[idx[1]:]
+		r.RequestURI = r.RequestURI[idx[1]:]
+	}
+	c.delegate.ServeHTTP(w, r)
 }

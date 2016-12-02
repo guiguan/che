@@ -18,6 +18,7 @@
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
                 <configuration>
+                    <skip>true</skip>
                     <excludes>
                         <exclude>*.*</exclude>
                     </excludes>
@@ -37,10 +38,10 @@
                         <configuration>
                             <target>
                                 <copy todir="${project.build.directory}/${go.workspace.name}/src">
-                                    <fileset dir="./vendor/" includes="**/*"/>
+                                    <fileset dir="./src/vendor/" includes="**/*"/>
                                 </copy>
                                 <copy todir="${project.build.directory}/${go.workspace.name}/src/github.com/eclipse/che/exec-agent">
-                                    <fileset dir="./" excludes="vendor/ target/" includes="**/*.*go **/static/*"/>
+                                    <fileset dir="./src/" excludes="vendor/ target/" includes="**/*.*go **/static/*"/>
                                 </copy>
                             </target>
                         </configuration>
@@ -112,6 +113,7 @@
                                             ${project.build.directory}/${go.workspace.name}/src/github.com/eclipse/che/exec-agent
                                         </workingDirectory>
                                         <arguments>
+                                            <!-- TODO build static version -->
                                             <argument>build</argument>
                                             <argument>-o</argument>
                                             <!--TODO rename binary to exec-agent -->
@@ -150,7 +152,7 @@
                                     <goal>single</goal>
                                     <configuration>
                                         <descriptors>
-                                            <descriptor>${basedir}/assembly/assembly.xml</descriptor>
+                                            <descriptor>${basedir}/src/assembly/assembly.xml</descriptor>
                                         </descriptors>
                                     </configuration>
                                 </pluginExecutor>

@@ -154,7 +154,7 @@ func removeChannel(channel Channel) {
 	delete(channels.items, channel.Id)
 }
 
-func registerChannel(w http.ResponseWriter, r *http.Request) error {
+func registerChannel(w http.ResponseWriter, r *http.Request, _ rest.Params) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Couldn't establish websocket connection " + err.Error())

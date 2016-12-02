@@ -300,7 +300,7 @@ func closeConn(conn *websocket.Conn, finalizer *ReadWriteRoutingFinalizer) {
 	}
 }
 
-func ConnectToPtyHF(w http.ResponseWriter, r *http.Request) error {
+func ConnectToPtyHF(w http.ResponseWriter, r *http.Request, _ rest.Params) error {
 	ptyHandler(w, r)
 	return nil
 }
