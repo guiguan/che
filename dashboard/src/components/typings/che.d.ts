@@ -66,6 +66,13 @@ declare namespace _che {
     id?: string;
     runtime?: any;
     temporary?: boolean;
+    status?: string;
+    namespace?: string;
+    attributes?: {
+      updated?: number;
+      created?: number;
+      [propName: string]: string;
+    };
     config: IWorkspaceConfig;
   }
 
@@ -93,6 +100,12 @@ declare namespace _che {
     commands: Array<any>;
     projectType: string;
     tags: Array<string>;
+    workspaceId?: string;
+    workspaceName?: string;
+  }
+
+  export interface IWorkspaceProjects {
+    [workspaceId: string]: Array<IProject>;
   }
 
   export interface IImportProject {
