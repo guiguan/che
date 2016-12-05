@@ -26,7 +26,12 @@ const (
 // vars variable contain only path parameters if any specified for given route
 type HttpRouteHandlerFunc func(w http.ResponseWriter, r *http.Request, params Params) error
 
+// An interface for getting mapped path parameters by their names
 type Params interface {
+
+	// Gets path parameter by it's name e.g.
+	// for url template `/process/:id` and actual value `/process/123`
+	// this method will return string '123'
 	Get(name string) string
 }
 
