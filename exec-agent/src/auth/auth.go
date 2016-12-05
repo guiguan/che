@@ -38,12 +38,10 @@ type Handler struct {
 
 func (handler Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	token := req.URL.Query().Get("token")
-	if handler.Cache != nil && handler.Cache.Contains(token) {
+	if handler.Cache.Contains(token) {
 		handler.Delegate.ServeHTTP(w, req)
 	} else if err := authenticateOnMaster(handler.ApiEndpoint, token); err == nil {
-		if handler.Cache != nil {
-			handler.Cache.Put(token)
-		}
+		handler.Cache.Put(token)
 		handler.Delegate.ServeHTTP(w, req)
 	} else if handler.UnauthorizedHandler != nil {
 		handler.UnauthorizedHandler(w, req)
@@ -65,7 +63,9 @@ func NewCache(expireDuration time.Duration, period time.Duration) *TokenCache {
 		tokens:        make(map[string]time.Time),
 		expireTimeout: expireDuration,
 	}
-	go cache.expirePeriodicaly(period)
+	if period > 0 {
+		go cache.expirePeriodically(period)
+	}
 	return cache
 }
 
@@ -91,7 +91,7 @@ func (cache *TokenCache) Contains(token string) bool {
 	return ok
 }
 
-func (cache *TokenCache) expirePeriodicaly(period time.Duration) {
+func (cache *TokenCache) expirePeriodically(period time.Duration) {
 	cache.ticker = time.NewTicker(period)
 	for range cache.ticker.C {
 		now := time.Now()

@@ -20,13 +20,14 @@ import (
 	"os"
 	"time"
 
+	"regexp"
+
 	"github.com/eclipse/che/exec-agent/auth"
 	"github.com/eclipse/che/exec-agent/process"
 	"github.com/eclipse/che/exec-agent/rest"
 	"github.com/eclipse/che/exec-agent/rpc"
 	"github.com/eclipse/che/exec-agent/term"
 	"github.com/julienschmidt/httprouter"
-	"regexp"
 )
 
 var (
@@ -70,7 +71,7 @@ func init() {
 		`the base path for all the rpc & rest routes, so route paths are treated not
 	as 'server_address + route_path' but 'server_address + path + route_path'.
 	For example for the server address 'localhost:9000', route path '/connect' and
-	configured path '/api/' exec-agent server will register the following route:
+	configured path '/api/' exec-agent server will serve the following route:
 	'localhost:9000/api/connect'.
 	Regexp syntax is supported`,
 	)
@@ -111,7 +112,7 @@ func init() {
 		&term.ActivityTrackingEnabled,
 		"enable-activity-tracking",
 		false,
-		"whether workspace master will be notified about terminal acitivity",
+		"whether workspace master will be notified about terminal activity",
 	)
 
 	// process configuration
@@ -152,9 +153,11 @@ func main() {
 	fmt.Println("  Terminal")
 	fmt.Printf("    - Slave command: '%s'\n", term.Cmd)
 	fmt.Printf("    - Activity tracking enabled: %t\n", term.ActivityTrackingEnabled)
-	fmt.Println("  Authetnication")
-	fmt.Printf("    - Enabled: %t\n", authEnabled)
-	fmt.Printf("    - Tokens expiration timeout: %dm\n", tokensExpirationTimeoutInMinutes)
+	if authEnabled {
+		fmt.Println("  Authentication")
+		fmt.Printf("    - Enabled: %t\n", authEnabled)
+		fmt.Printf("    - Tokens expiration timeout: %dm\n", tokensExpirationTimeoutInMinutes)
+	}
 	fmt.Println("  Process executor")
 	fmt.Printf("    - Logs dir: %s\n", process.LogsDir)
 	fmt.Printf("    - Cleanup job period: %dm\n", process.CleanupPeriodInMinutes)
