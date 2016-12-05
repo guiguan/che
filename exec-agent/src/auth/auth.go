@@ -94,14 +94,17 @@ func (cache *TokenCache) Contains(token string) bool {
 func (cache *TokenCache) expirePeriodically(period time.Duration) {
 	cache.ticker = time.NewTicker(period)
 	for range cache.ticker.C {
-		now := time.Now()
-		cache.Lock()
-		for token, expTime := range cache.tokens {
-			if expTime.Before(now) {
-				delete(cache.tokens, token)
-			}
+		cache.expireAllBefore(time.Now())
+	}
+}
+
+func (cache *TokenCache) expireAllBefore(expirationPoint time.Time) {
+	cache.Lock()
+	defer cache.Unlock()
+	for token, expTime := range cache.tokens {
+		if expTime.Before(expirationPoint) {
+			delete(cache.tokens, token)
 		}
-		cache.Unlock()
 	}
 }
 
