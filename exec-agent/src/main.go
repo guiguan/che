@@ -48,6 +48,9 @@ var (
 
 	authEnabled                      bool
 	tokensExpirationTimeoutInMinutes uint
+
+	processCleanupThresholdInMinutes int
+	processCleanupPeriodInMinutes    int
 )
 
 func init() {
@@ -107,7 +110,7 @@ func init() {
 		"how much time machine tokens stay in cache(if auth is enabled)",
 	)
 
-	// activity tracking
+	// terminal configuration
 	flag.BoolVar(
 		&term.ActivityTrackingEnabled,
 		"enable-activity-tracking",
@@ -115,16 +118,16 @@ func init() {
 		"whether workspace master will be notified about terminal activity",
 	)
 
-	// process configuration
+	// process executor configuration
 	flag.IntVar(
-		&process.CleanupPeriodInMinutes,
+		&processCleanupPeriodInMinutes,
 		"process-cleanup-period",
-		5,
+		-1,
 		"how often processs cleanup job will be executed(in minutes)",
 	)
-	flag.IntVar(&process.CleanupThresholdInMinutes,
+	flag.IntVar(&processCleanupThresholdInMinutes,
 		"process-cleanup-threshold",
-		60,
+		-1,
 		`how much time will dead and unused process stay(in minutes),
 	if -1 passed then processes won't be cleaned at all. Please note that the time
 	of real cleanup is between configured threshold and threshold + process-cleanup-period.`,
@@ -160,8 +163,10 @@ func main() {
 	}
 	fmt.Println("  Process executor")
 	fmt.Printf("    - Logs dir: %s\n", process.LogsDir)
-	fmt.Printf("    - Cleanup job period: %dm\n", process.CleanupPeriodInMinutes)
-	fmt.Printf("    - Not used & dead processes stay for: %dm\n", process.CleanupThresholdInMinutes)
+	if processCleanupPeriodInMinutes > 0 {
+		fmt.Printf("    - Cleanup job period: %dm\n", processCleanupPeriodInMinutes)
+		fmt.Printf("    - Not used & dead processes stay for: %dm\n", processCleanupThresholdInMinutes)
+	}
 	if authEnabled || term.ActivityTrackingEnabled {
 		fmt.Println("  Workspace master server")
 		fmt.Printf("    - API endpoint: %s\n", apiEndpoint)
@@ -170,11 +175,25 @@ func main() {
 
 	term.ApiEndpoint = apiEndpoint
 
-	// cleanup logs dir
+	// process configuration
 	if err := os.RemoveAll(process.LogsDir); err != nil {
 		log.Fatal(err)
 	}
 
+	if processCleanupPeriodInMinutes > 0 {
+		if processCleanupThresholdInMinutes < 0 {
+			log.Fatal("Expected process cleanup threshold to be non negative value")
+		}
+		cleaner := process.NewCleaner(processCleanupPeriodInMinutes, processCleanupThresholdInMinutes)
+		cleaner.CleanPeriodically()
+	}
+
+	// terminal configuration
+	if term.ActivityTrackingEnabled {
+		go term.Activity.StartTracking()
+	}
+
+	// register routes and http handlers
 	router := httprouter.New()
 	router.NotFound = http.FileServer(http.Dir(staticDir))
 
@@ -199,13 +218,6 @@ func main() {
 			fmt.Printf("✓ %s\n", route.Method)
 			rpc.RegisterRoute(route)
 		}
-	}
-
-	if process.CleanupThresholdInMinutes > 0 {
-		go process.CleanPeriodically()
-	}
-	if term.ActivityTrackingEnabled {
-		go term.Activity.StartTracking()
 	}
 
 	var handler http.Handler = router

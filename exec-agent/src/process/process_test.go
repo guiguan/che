@@ -196,19 +196,6 @@ func TestReadProcessLogs(t *testing.T) {
 	}
 }
 
-func TestCleanOnce(t *testing.T) {
-	p := startAndWaitTestProcess(testCmd, t)
-	defer cleanupLogsDir()
-	process.CleanOnce(0)
-	_, err := process.Get(p.Pid)
-	if err == nil {
-		t.Fatal("Must not exist")
-	}
-	if _, ok := err.(*process.NoProcessError); !ok {
-		t.Fatal(err)
-	}
-}
-
 func startAndWaitTestProcess(cmd string, t *testing.T) process.MachineProcess {
 	process.LogsDir = TmpFile()
 	events := make(chan *rpc.Event)
